@@ -209,7 +209,7 @@ export default function AdminProducts() {
       
       if (error) throw error;
       toast.success("Product deleted successfully!");
-      setProducts(products.filter((p) => p.id !== productToDelete));
+      loadProducts(); // Reload from database instead of filtering local state
     } catch (error: any) {
       console.error("Error deleting product:", error);
       toast.error(error.message || "Failed to delete product");
@@ -246,11 +246,17 @@ export default function AdminProducts() {
             Manage your product catalog
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700"
-              onClick={resetForm}
+              onClick={() => {
+                resetForm();
+                setDialogOpen(true);
+              }}
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Product
