@@ -470,7 +470,6 @@ export default function AdminProducts() {
                         onCheckedChange={() =>
                           handleToggleFeatured(product.id, product.is_featured)
                         }
-                        className="data-[state=checked]:bg-green-600"
                       />
                       <span className="text-sm text-gray-600">
                         {product.is_featured ? "Featured" : "Regular"}
