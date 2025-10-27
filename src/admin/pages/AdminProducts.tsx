@@ -26,9 +26,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export default function AdminProducts() {
@@ -38,7 +48,11 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [viewingProduct, setViewingProduct] = useState<any>(null);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -158,18 +172,56 @@ export default function AdminProducts() {
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+  const handleToggleFeatured = async (productId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_featured: !currentValue })
+        .eq("id", productId);
+
+      if (error) throw error;
+      
+      toast.success(
+        !currentValue
+          ? "Product marked as featured!"
+          : "Product removed from featured"
+      );
+      loadProducts();
+    } catch (error: any) {
+      console.error("Error toggling featured:", error);
+      toast.error(error.message || "Failed to update product");
+    }
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setProductToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
 
     try {
-      const { error } = await supabase.from("products").delete().eq("id", id);
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", productToDelete);
+      
       if (error) throw error;
       toast.success("Product deleted successfully!");
-      setProducts(products.filter((p) => p.id !== id));
+      setProducts(products.filter((p) => p.id !== productToDelete));
     } catch (error: any) {
       console.error("Error deleting product:", error);
       toast.error(error.message || "Failed to delete product");
+    } finally {
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
     }
+  };
+
+  const handleView = (product: any) => {
+    setViewingProduct(product);
+    setViewDialogOpen(true);
   };
 
   const filteredProducts = products.filter((product) =>
@@ -406,29 +458,43 @@ export default function AdminProducts() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={product.is_featured ? "default" : "secondary"}
-                    >
-                      {product.is_featured ? "Featured" : "Regular"}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={product.is_featured}
+                        onCheckedChange={() =>
+                          handleToggleFeatured(product.id, product.is_featured)
+                        }
+                        className="data-[state=checked]:bg-green-600"
+                      />
+                      <span className="text-sm text-gray-600">
+                        {product.is_featured ? "Featured" : "Regular"}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end space-x-2">
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleView(product)}
+                        title="View Details"
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(product)}
+                        title="Edit Product"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(product.id)}
+                        onClick={() => handleDeleteClick(product.id)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Delete Product"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -466,6 +532,97 @@ export default function AdminProducts() {
           </p>
         </div>
       </div>
+
+      {/* View Product Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Product Details</DialogTitle>
+          </DialogHeader>
+          {viewingProduct && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <img
+                    src={viewingProduct.image_url}
+                    alt={viewingProduct.name}
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Product Name</p>
+                    <p className="text-lg font-semibold">{viewingProduct.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Price</p>
+                    <p className="text-lg font-semibold text-green-600">₹{viewingProduct.price}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Brand</p>
+                    <p>{viewingProduct.brands?.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Category</p>
+                    <p>{viewingProduct.categories?.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Stock Quantity</p>
+                    <p className={viewingProduct.stock_quantity > 0 ? "text-green-600" : "text-red-600"}>
+                      {viewingProduct.stock_quantity || 0} units
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {viewingProduct.is_featured && (
+                      <Badge className="bg-green-600">Featured</Badge>
+                    )}
+                    {viewingProduct.is_premium && (
+                      <Badge className="bg-purple-600">Premium</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-2">Description</p>
+                <p className="text-gray-700">{viewingProduct.description || "No description available"}</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setViewDialogOpen(false);
+                  handleEdit(viewingProduct);
+                }}>
+                  Edit Product
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product
+              from the database and remove it from the website.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Product
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
