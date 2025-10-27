@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/contexts/AuthContext";
 import AdminLayout from "@/admin/layouts/AdminLayout";
 import Dashboard from "@/admin/pages/AdminDashboard";
 import Products from "@/admin/pages/AdminProducts";
@@ -16,7 +17,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
+        <AuthProvider>
+          <Routes>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -28,7 +30,8 @@ function App() {
             <Route path="collections" element={<Collections />} />
           </Route>
           <Route path="*" element={<Navigate to="/admin" replace />} />
-        </Routes>
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
       <Toaster />
     </QueryClientProvider>
